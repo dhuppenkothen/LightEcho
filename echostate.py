@@ -20,12 +20,13 @@ def sigmoid(x):
 class EchoStateNetwork(object):
 
 
-    def __init__(self, x,y, N, a, r, b=None,topology="scr"):
+    def __init__(self, x,y, N, lamb, a, r, b=None,topology="scr"):
         """
         Initialization for the echo state network for time series.
         :param x: x-coordinate (time bins)
         :param y: data (K by D, where K is the number of data points, D the dimensionality)
         :param N: number of hidden units.
+        :param lamb: regularization term
         :param a: absolute value of input weights
         :param r: weights for forward connections between hidden weights
         :param b: weights for backward connections between hidden weights (for topology="dlrb" only)
@@ -61,6 +62,9 @@ class EchoStateNetwork(object):
         ## output weight matrix
         self.ww = np.zeros((self.N, self.D))
 
+        ## regularisation term
+        self.lamb = lamb
+
         ## reservoir topology and associated parameters
         self.topology = topology
         self.r = r
@@ -91,7 +95,7 @@ class EchoStateNetwork(object):
 
         ## set the seed deterministically
         np.random.seed(seed=20150513)
-        
+
         ## initialize weight matrix with Bernoulli distribution
         vv = scipy.stats.bernoulli.rvs(pr, size=(self.N, self.D)).astype(np.float64)
 
@@ -144,15 +148,35 @@ class EchoStateNetwork(object):
         return uu
 
     def train(self, ww_init, n_washout=100):
+        """
+        not sure I'm doing the right thing in this method!!!!
 
-        X = np.zeros((self.N, 1))
+        :param ww_init: initial weights to use
+        :param n_washout: number of samples in the time series to wash out
+        :return:
+        """
 
-        vv = self.vv[n_washout:]
+        ## not sure this is right?
+        X = np.ones((self.N, 1))
+
+        for i in xrange(self.K-1):
+            X[i+1] = np.tanh(np.dot(self.uu, X[i]) + np.dot(self.vv,self.yy))
+
+        ## discard washout period
+        X = X[n_washout:]
+        #vv = self.vv[n_washout:]
         ww = self.ww[n_washout:]
-
+        ww_init = ww_init[n_washout:]
         yy = self.y[n_washout:]
 
-        for i in xrange(self.K-n_washout-1):
-            X[i+1] = np.tanh(np.dot(self.uu, X[i]) + np.dot(vv,yy))
+
+    def _cost_function(self, yy, X, ww, lamb):
+
+        inner_part =  np.dot(X,ww) - yy
+        second_term = 0.5*lamb*np.linalg.norm(ww)**2.
+        return 0.5*np.linalg.norm(inner_part)**2. + second_term
+
+
+
 
         return
