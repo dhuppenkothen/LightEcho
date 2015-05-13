@@ -89,6 +89,9 @@ class EchoStateNetwork(object):
         ## probability for the Bernoulli trials
         pr = 0.5
 
+        ## set the seed deterministically
+        np.random.seed(seed=20150513)
+        
         ## initialize weight matrix with Bernoulli distribution
         vv = scipy.stats.bernoulli.rvs(pr, size=(self.N, self.D)).astype(np.float64)
 
@@ -140,3 +143,16 @@ class EchoStateNetwork(object):
 
         return uu
 
+    def train(self, ww_init, n_washout=100):
+
+        X = np.zeros((self.N, 1))
+
+        vv = self.vv[n_washout:]
+        ww = self.ww[n_washout:]
+
+        yy = self.y[n_washout:]
+
+        for i in xrange(self.K-n_washout-1):
+            X[i+1] = np.tanh(np.dot(self.uu, X[i]) + np.dot(vv,yy))
+
+        return
