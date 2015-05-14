@@ -11,8 +11,7 @@
 
 import numpy as np
 import scipy.stats
-import sklearn
-
+from sklearn.linear_model import RidgeCV
 
 def sigmoid(x):
     return 1./(1.+np.exp(-x))
@@ -22,7 +21,7 @@ def sigmoid(x):
 class EchoStateNetwork(object):
 
 
-    def __init__(self, x,y, N, lamb, a, r, b=None,topology="scr"):
+    def __init__(self, x,y, N, a, r, b=None,topology="scr"):
         """
         Initialization for the echo state network for time series.
         :param x: x-coordinate (time bins)
@@ -46,23 +45,20 @@ class EchoStateNetwork(object):
         print("shape of data stream: " + str(self.y.shape))
 
         ## number of data points
-        self.K = self.y.shape[1]
+        self.K = int(self.y.shape[1])
         print("Number of data points: %i"%self.K)
 
         ## number of dimensions
         if len(self.y.shape) > 1:
-            self.D = self.y.shape[1]
+            self.D = int(self.y.shape[0])
         else:
             self.D = 1
 
         print("Dimensionality of the data: %i"%self.D)
 
         ## number of hidden units
-        self.N = N
+        self.N = int(N)
         print("Number of hidden units: %i"%self.N)
-
-        ## regularisation term
-        self.lamb = lamb
 
         ## reservoir topology and associated parameters
         self.topology = topology
@@ -146,7 +142,7 @@ class EchoStateNetwork(object):
 
         return uu
 
-    def train(self, ww_init, n_washout=100, scaling=1.0):
+    def train(self, n_washout=100, scaling=1.0):
         """
         not sure I'm doing the right thing in this method!!!!
 
@@ -157,29 +153,33 @@ class EchoStateNetwork(object):
 
         ## not sure this is right?
         X = np.zeros((self.K, self.N))
-
+        #print("X.shape: " + str(X.shape))
         ## set first row with random numbers between -1 and 1
         X[0,:] = np.random.uniform(-1,1,size=(self.N))
+        #print("X[0,:]: " + str(X[0,:]))
 
-
+        self.X = X
         ## compute activations for every time step
         ## include a scaling for memory from previous time step
         for i in xrange(self.K-1):
-            first_part = np.dot(X[i],self.uu)
+            first_part = np.dot(X[i,:],self.uu)
             #print("first part: " + str(first_part.shape))
-            second_part = np.dot(self.vv,self.y[i])
+            second_part = np.dot(self.vv,self.y[0,i]).T
             #print("second part: " + str(second_part.shape))
-            act = np.tanh(first_part, second_part)
+            act = np.tanh(first_part + second_part)
+            #print("act: " + str(act))
             X[i+1,:] = (1.0-scaling)*X[i,:] + scaling*act
 
 
         ## discard washout period
-        X = X[n_washout:]
+        X = X[n_washout:,:]
+        print("X.shape: " + str(X.shape))
         #vv = self.vv[n_washout:]
-        ww = self.ww[n_washout:]
-        ww_init = ww_init[n_washout:]
-        yy = self.y[n_washout:]
+        #ww = self.ww[n_washout:]
+        #ww_init = ww_init[n_washout:]
+        yy = self.y[:,n_washout:].T
 
+        print("yy.shape: " + str(yy.shape))
         #cf = lambda weights: self._cost_function(yy, X, weights, self.lamb)
 
         ## pseudoinverse of data, such that I can fit a linear model.
@@ -190,23 +190,48 @@ class EchoStateNetwork(object):
         lamb_all = [0.1, 1., 10.]
 
         ## initialize Ridge Regression classifier
-        rr_clf = sklearn.linear_model.RidgeCV(alphas=lamb_all)
+        rr_clf = RidgeCV(alphas=lamb_all)
 
         ## fit the data with the linear model
         rr_clf.fit(X, yy)
 
         ## regularization parameter determined by cross validation
-        lamb_cv = rr_clf.alpha_
+        self.lamb = rr_clf.alpha_
 
         ## best-fit output weights
-        ww = rr_clf.coef_
+        self.ww = rr_clf.coef_
 
         ## "simulated" data
-        yy_out = [np.dot(act, ww) for act in X]
+        yy_out = np.array([np.dot(act.T, self.ww.T) for act in X]).T
 
-        return ww, yy_out
+        return self.ww, yy_out
+
+    def test(self, testdata, scaling=1.0):
+        """run the esn, see what happens"""
 
 
+        X = np.zeros((len(testdata), self.N))
+        X[0,:] = self.X[-1,:]
+
+        yy_test = []
+
+        for i in range(len(testdata)-1):
+
+            yy_test.append(np.dot(X[i,:], self.ww.T))
+
+            first_part = np.dot(X[i,:],self.uu)
+            #print("first part: " + str(first_part.shape))
+            second_part = np.dot(self.vv,self.y[0,i]).T
+            #print("second part: " + str(second_part.shape))
+            act = np.tanh(first_part + second_part)
+            X[i+1,:] = (1.0-scaling)*X[i,:] + scaling*act
+            #print("X: " + str(X[i,:]))
+
+        #weights_first_term = np.dot(self.X.T,self.X) + self.lamb**2.*np.identity(self.N)
+        #weights_second_term = np.dot(self.X.T, testdata)
+        #ww_test = np.dot(weights_first_term**-1., weights_second_term)
+
+        return np.array(yy_test).T
 
     def _cost_function(self, yy, X, ww, lamb):
         """
