@@ -90,6 +90,51 @@ def test_input_weights():
 
     return
 
+
+def test_cost_function():
+
+
+    ## dummy data
+    x = np.arange(10000)
+
+    ## single data stream
+    y = np.ones_like(x)
+
+
+    ## choose value for r
+    r = 0.1
+
+    ## pick a weight for the input weights
+    a = 0.75
+
+    ## pick 10 hidden units
+    N = 15
+
+    ## set regularisation term
+    lamb = 1.0
+
+    esn = EchoStateNetwork(x,y,N,lamb,a,r,topology="scr")
+
+    weights = np.random.uniform(size=(esn.N, esn.D))
+
+    ## not sure this is right?
+    X = np.ones((esn.K, esn.N))
+
+    for i in xrange(esn.K-1):
+        first_part = np.dot(esn.uu, X[i])
+        #print("first part: " + str(first_part.shape))
+        second_part = np.dot(esn.vv,esn.y.T)
+        #print("second part: " + str(second_part.shape))
+        X[i+1,:] = np.tanh(first_part, second_part.T)
+        #X[i+1] = np.tanh(np.dot(esn.uu, X[i]) + np.dot(esn.vv,esn.y))
+
+
+    cf = esn._cost_function(y, X, weights, esn.lamb)
+    print("The cost function is: " + str(cf))
+
+    return
+
 ### run all tests
 test_hidden_weights()
 test_input_weights()
+test_cost_function()

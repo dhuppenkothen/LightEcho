@@ -11,6 +11,8 @@
 
 import numpy as np
 import scipy.stats
+import sklearn
+
 
 def sigmoid(x):
     return 1./(1.+np.exp(-x))
@@ -37,14 +39,14 @@ class EchoStateNetwork(object):
 
 
         ## x-coordinate
-        self.x = x
+        self.x = np.atleast_2d(x)
 
         ## y-coordiante
-        self.y = y
+        self.y = np.atleast_2d(y)
         print("shape of data stream: " + str(self.y.shape))
 
         ## number of data points
-        self.K = self.y.shape[0]
+        self.K = self.y.shape[1]
         print("Number of data points: %i"%self.K)
 
         ## number of dimensions
@@ -58,9 +60,6 @@ class EchoStateNetwork(object):
         ## number of hidden units
         self.N = N
         print("Number of hidden units: %i"%self.N)
-
-        ## output weight matrix
-        self.ww = np.zeros((self.N, self.D))
 
         ## regularisation term
         self.lamb = lamb
@@ -147,7 +146,7 @@ class EchoStateNetwork(object):
 
         return uu
 
-    def train(self, ww_init, n_washout=100):
+    def train(self, ww_init, n_washout=100, scaling=1.0):
         """
         not sure I'm doing the right thing in this method!!!!
 
@@ -157,10 +156,22 @@ class EchoStateNetwork(object):
         """
 
         ## not sure this is right?
-        X = np.ones((self.N, 1))
+        X = np.zeros((self.K, self.N))
 
+        ## set first row with random numbers between -1 and 1
+        X[0,:] = np.random.uniform(-1,1,size=(self.N))
+
+
+        ## compute activations for every time step
+        ## include a scaling for memory from previous time step
         for i in xrange(self.K-1):
-            X[i+1] = np.tanh(np.dot(self.uu, X[i]) + np.dot(self.vv,self.yy))
+            first_part = np.dot(X[i],self.uu)
+            #print("first part: " + str(first_part.shape))
+            second_part = np.dot(self.vv,self.y[i])
+            #print("second part: " + str(second_part.shape))
+            act = np.tanh(first_part, second_part)
+            X[i+1,:] = (1.0-scaling)*X[i,:] + scaling*act
+
 
         ## discard washout period
         X = X[n_washout:]
@@ -169,14 +180,48 @@ class EchoStateNetwork(object):
         ww_init = ww_init[n_washout:]
         yy = self.y[n_washout:]
 
+        #cf = lambda weights: self._cost_function(yy, X, weights, self.lamb)
+
+        ## pseudoinverse of data, such that I can fit a linear model.
+        ## NOT SURE I NEED THIS!
+        yy_inv = np.arctanh(yy)
+
+        ## proposals for regularization parameters
+        lamb_all = [0.1, 1., 10.]
+
+        ## initialize Ridge Regression classifier
+        rr_clf = sklearn.linear_model.RidgeCV(alphas=lamb_all)
+
+        ## fit the data with the linear model
+        rr_clf.fit(X, yy)
+
+        ## regularization parameter determined by cross validation
+        lamb_cv = rr_clf.alpha_
+
+        ## best-fit output weights
+        ww = rr_clf.coef_
+
+        ## "simulated" data
+        yy_out = [np.dot(act, ww) for act in X]
+
+        return ww, yy_out
+
+
 
     def _cost_function(self, yy, X, ww, lamb):
+        """
+        This is the cost function for Ridge Regression. I can just use the
+        scikit-learn implementation of Ridge Regression, but with sqrt(lamb)
+        as a regularization parameter.
 
+
+        :param yy:
+        :param X:
+        :param ww:
+        :param lamb:
+        :return:
+        """
         inner_part =  np.dot(X,ww) - yy
         second_term = 0.5*lamb*np.linalg.norm(ww)**2.
         return 0.5*np.linalg.norm(inner_part)**2. + second_term
 
-
-
-
-        return
