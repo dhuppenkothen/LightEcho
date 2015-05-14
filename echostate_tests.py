@@ -184,9 +184,27 @@ def test_code():
     return ww, yy_out, yy_test
 
 
+def test_on_real_data():
+
+    rho_data = np.loadtxt("rho_example.txt")
+    yy = rho_data[:1000,1]
+
+    esn = EchoStateNetwork(rho_data[:,0], yy, 1000, 0.1, 0.5)
+
+    ww, yy_out = esn.train(n_washout=50, scaling=0.1)
+
+    yy_test = esn.test(yy, scaling=1.0)
+
+
+
+    return ww, yy_out, yy_test
+
+
+
 ### run all tests
 #test_hidden_weights()
 #test_input_weights()
 #est_cost_function()
 #acts = test_damping()
-ww, yy_out, yy_test = test_code()
+#ww, yy_out, yy_test = test_code()
+ww, yy_out, yy_test = test_on_real_data()
