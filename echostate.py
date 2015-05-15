@@ -223,11 +223,11 @@ class EchoStateNetwork(object):
         H = np.zeros((len(X), self.N))
         H[0,:] = self.H[-1,:]
 
-        yy_test = []
+        X_pred = []
 
         for i in range(len(X)-1):
 
-            yy_test.append(np.dot(H[i,:], self.ww.T))
+            X_pred.append(np.dot(H[i,:], self.ww.T))
 
             first_part = np.dot(H[i,:],self.uu)
             #print("first part: " + str(first_part.shape))
@@ -236,9 +236,9 @@ class EchoStateNetwork(object):
             act = np.tanh(first_part + second_part)
             H[i+1,:] = (1.0-self.scaling)*H[i,:] + self.scaling*act
 
-        return np.array(yy_test).T
+        return np.array(X_pred)
 
-    def _cost_function(self, yy, X, ww, lamb):
+    def _cost_function(self, X, H, ww, lamb):
         """
         This is the cost function for Ridge Regression. I can just use the
         scikit-learn implementation of Ridge Regression, but with sqrt(lamb)
@@ -251,7 +251,26 @@ class EchoStateNetwork(object):
         :param lamb:
         :return:
         """
-        inner_part =  np.dot(X,ww) - yy
+        inner_part =  np.dot(H,ww) - X
         second_term = 0.5*lamb*np.linalg.norm(ww)**2.
         return 0.5*np.linalg.norm(inner_part)**2. + second_term
 
+
+    def score(self, X, method="nsme"):
+        """
+        Score performance of the algorithm.
+
+        :param X: (numpy.ndarray) data to predict
+        :param method: (string) which scoring method to use:
+                        nsme = Normalized Mean Square Error (Rodan+Tino 2011)
+        :return:
+        """
+        X_pred = self.predict(X)
+
+
+        if method == "nsme":
+            nominator = np.mean(np.linalg.norm(X_pred - X, axis=0)**2.)
+            denominator = np.mean(np.linalg.norm(X - np.mean(X, axis=1), axis=0)**2.)
+            return nominator/denominator
+        else:
+            raise Exception("Scoring method not known!")
