@@ -2,7 +2,9 @@
 ### Tests for the echo state network code.
 
 import numpy as np
+
 from echostate import EchoStateNetwork
+
 
 def test_hidden_weights():
     """
@@ -184,20 +186,19 @@ def test_code():
     return ww, yy_out, yy_test
 
 
-def test_on_real_data():
+def test_with_noise():
 
-    rho_data = np.loadtxt("rho_example.txt")
-    yy = rho_data[:1000,1]
+    data = np.loadtxt("varsine.dat")
+    x = np.arange(len(data))
+    yy = np.random.normal(data, 0.1)
 
-    esn = EchoStateNetwork(rho_data[:,0], yy, 1000, 0.1, 0.5)
+    esn = EchoStateNetwork(x, yy, 100, 1.0, 0.5)
 
-    ww, yy_out = esn.train(n_washout=50, scaling=0.1)
+    ww, yy_out = esn.train(n_washout=50, scaling=1.0)
 
-    yy_test = esn.test(yy, scaling=1.0)
+    yy_test = esn.test(data, scaling=1.0)
 
-
-
-    return ww, yy_out, yy_test
+    return esn, ww, yy_out, yy_test
 
 
 
@@ -207,4 +208,4 @@ def test_on_real_data():
 #est_cost_function()
 #acts = test_damping()
 #ww, yy_out, yy_test = test_code()
-ww, yy_out, yy_test = test_on_real_data()
+#esn, ww, yy_out, yy_test = test_with_noise()

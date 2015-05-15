@@ -11,7 +11,7 @@
 
 import numpy as np
 import scipy.stats
-from sklearn.linear_model import RidgeCV
+from sklearn.linear_model import RidgeCV, Ridge
 
 def sigmoid(x):
     return 1./(1.+np.exp(-x))
@@ -142,7 +142,7 @@ class EchoStateNetwork(object):
 
         return uu
 
-    def train(self, n_washout=100, scaling=1.0):
+    def train(self, n_washout=100, scaling=1.0, lamb=None):
         """
         not sure I'm doing the right thing in this method!!!!
 
@@ -151,6 +151,7 @@ class EchoStateNetwork(object):
         :return:
         """
 
+        self.n_washout = n_washout
         ## not sure this is right?
         X = np.zeros((self.K, self.N))
         #print("X.shape: " + str(X.shape))
@@ -186,17 +187,21 @@ class EchoStateNetwork(object):
         ## NOT SURE I NEED THIS!
         yy_inv = np.arctanh(yy)
 
-        ## proposals for regularization parameters
-        lamb_all = [0.1, 1., 10.]
 
-        ## initialize Ridge Regression classifier
-        rr_clf = RidgeCV(alphas=lamb_all)
+        ## if regularization parameter is None, then determine by cross validation
+        if lamb is None:
+            ## proposals for regularization parameters
+            lamb_all = [0.1, 1., 10.]
+            ## initialize Ridge Regression classifier
+            rr_clf = RidgeCV(alphas=lamb_all)
+            ## fit the data with the linear model
+            rr_clf.fit(X, yy)
+            ## regularization parameter determined by cross validation
+            self.lamb = rr_clf.alpha_
 
-        ## fit the data with the linear model
-        rr_clf.fit(X, yy)
-
-        ## regularization parameter determined by cross validation
-        self.lamb = rr_clf.alpha_
+        else:
+            rr_clf = Ridge(alpha=lamb)
+            rr_clf.fit(X,yy)
 
         ## best-fit output weights
         self.ww = rr_clf.coef_
