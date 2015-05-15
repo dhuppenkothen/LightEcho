@@ -211,11 +211,13 @@ def test_score():
     esn = EchoStateNetwork(N=100, a=1.0, r=0.5)
     esn.fit(data)
 
-    score_full = esn.score(data)
-    print("Score on full dataset without noise is: %.3f"%score_full)
+    print("NSME should match sklearn.metrics.r2_score! \n")
 
-    score_noise = esn.score(yy)
-    print("Score on full data set: train without noise, score with noise: %.3f"%score_noise)
+    print("NSME score on full dataset without noise is: %.3f"%esn.score(data, method="nsme"))
+    print("R^2 score on full dataset without noise is: %.3f \n"%esn.score(data, method="r2"))
+
+    print("NSME score on full data set: train without noise, score with noise: %.3f"%esn.score(yy, method="nsme"))
+    print("R^2score on full dataset without noise is: %.3f \n"%esn.score(yy, method="r2"))
 
     ### Split into training and test set, see what happens
     ndata = data.shape[0]
@@ -230,8 +232,8 @@ def test_score():
 
     esn.fit(yy_train)
 
-    score_train= esn.score(yy_test)
-    print("Score on test dataset with noise is: %.3f"%score_train)
+    print("NSME score on test dataset with noise is: %.3f"%esn.score(yy_test, method="nsme"))
+    print("R^2 score on full dataset without noise is: %.3f"%esn.score(yy_test, method="r2"))
 
     return
 

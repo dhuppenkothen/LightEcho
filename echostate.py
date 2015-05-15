@@ -268,7 +268,7 @@ class EchoStateNetwork(object):
         Score performance of the algorithm.
 
         :param X: (numpy.ndarray) data to predict
-        :param method: (string) which scoring method to use:
+        :param method: (string) which scoring method to use (NOTE: THESE ARE THE SAME!):
                         nsme = Normalized Mean Square Error (Rodan+Tino 2011)
                         r2 = R^2 score
         :return:
@@ -279,12 +279,12 @@ class EchoStateNetwork(object):
 
         X_pred = self.predict(X)
 
-        #print("X.shape: " + str(X.shape))
-        #print("X_pred.shape: " + str(X_pred.shape))
-
         if method == "nsme":
             nominator = np.mean(np.linalg.norm(X_pred - X, axis=1)**2.)
             denominator = np.mean(np.linalg.norm(X - np.mean(X, axis=0), axis=1)**2.)
             return 1. - nominator/denominator
+
+        elif method == "r2":
+            return r2_score(X, X_pred)
         else:
             raise Exception("Scoring method not known!")
