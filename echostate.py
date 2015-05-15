@@ -12,6 +12,7 @@
 import numpy as np
 import scipy.stats
 from sklearn.linear_model import RidgeCV, Ridge
+from sklearn.metrics import r2_score
 
 def sigmoid(x):
     return 1./(1.+np.exp(-x))
@@ -43,7 +44,7 @@ class EchoStateNetwork(object):
 
         ## number of hidden units
         self.N = int(N)
-        print("Number of hidden units: %i"%self.N)
+        #print("Number of hidden units: %i"%self.N)
 
         ## reservoir topology and associated parameters
         self.topology = topology
@@ -142,7 +143,7 @@ class EchoStateNetwork(object):
         """
         Fit method for the Echo State Network.
 
-        :param X: data (D by K, where K is the number of data points, D the dimensionality)
+        :param X: data (K by D, where K is the number of data points, D the dimensionality)
 
         :return:
         """
@@ -150,20 +151,19 @@ class EchoStateNetwork(object):
 
 
         ## data
-        self.X = np.atleast_2d(X)
-        print("shape of data stream: " + str(self.X.shape))
+        if len(X.shape) == 1:
+            X = np.atleast_2d(X).T
+
+        self.X = X
+        #print("shape of data stream: " + str(self.X.shape))
 
         ## number of data points
-        self.K = int(self.X.shape[1])
-        print("Number of data points: %i"%self.K)
+        self.K = int(self.X.shape[0])
+        #print("Number of data points: %i"%self.K)
 
         ## number of dimensions
-        if len(self.X.shape) > 1:
-            self.D = int(self.X.shape[0])
-        else:
-            self.D = 1
-
-        print("Dimensionality of the data: %i"%self.D)
+        self.D = int(self.X.shape[1])
+        #print("Dimensionality of the data: %i"%self.D)
 
 
         ## initialize input weights
@@ -181,17 +181,18 @@ class EchoStateNetwork(object):
         for i in xrange(self.K-1):
             ## split equation into two parts to avoid stupid mistakes
             first_part = np.dot(H[i,:],self.uu)
-            second_part = np.dot(self.vv,self.X[0,i]).T
+            second_part = np.dot(self.vv,self.X[i,0]).T
             act = np.tanh(first_part + second_part)
             H[i+1,:] = (1.0-self.scaling)*H[i,:] + self.scaling*act
 
+        #print("H.shape: " + str(H.shape))
 
         ## discard washout period
         H = H[self.n_washout:,:]
-        print("H.shape: " + str(H.shape))
+        #print("H.shape: " + str(H.shape))
 
-        yy = self.X[:,self.n_washout:].T
-        print("yy.shape: " + str(yy.shape))
+        yy = self.X[self.n_washout:,:]
+        #print("yy.shape: " + str(yy.shape))
 
 
         ## if regularization parameter is None, then determine by cross validation
@@ -220,22 +221,27 @@ class EchoStateNetwork(object):
     def predict(self, X):
         """run the esn, see what happens"""
 
+        ## data
+        if len(X.shape) == 1:
+            X = np.atleast_2d(X).T
 
-        H = np.zeros((X.shape[1], self.N))
+        H = np.zeros((X.shape[0], self.N))
         H[0,:] = self.H[-1,:]
 
         X_pred = []
 
-        for i in range(X.shape[1]-1):
+        for i in range(1, X.shape[0]):
 
-            X_pred.append(np.dot(H[i,:], self.ww.T))
+            X_pred.append(np.dot(H[i-1,:], self.ww.T))
 
-            first_part = np.dot(H[i,:],self.uu)
+            first_part = np.dot(H[i-1,:],self.uu)
             #print("first part: " + str(first_part.shape))
-            second_part = np.dot(self.vv, X[0,i]).T
+            second_part = np.dot(self.vv, X[i-1,0]).T
             #print("second part: " + str(second_part.shape))
             act = np.tanh(first_part + second_part)
-            H[i+1,:] = (1.0-self.scaling)*H[i,:] + self.scaling*act
+            H[i,:] = (1.0-self.scaling)*H[i-1,:] + self.scaling*act
+
+        X_pred.append(np.dot(H[-1,:], self.ww.T))
 
         return np.array(X_pred)
 
@@ -264,14 +270,21 @@ class EchoStateNetwork(object):
         :param X: (numpy.ndarray) data to predict
         :param method: (string) which scoring method to use:
                         nsme = Normalized Mean Square Error (Rodan+Tino 2011)
+                        r2 = R^2 score
         :return:
         """
+
+        if len(X.shape) == 1:
+            X = np.atleast_2d(X).T
+
         X_pred = self.predict(X)
 
+        #print("X.shape: " + str(X.shape))
+        #print("X_pred.shape: " + str(X_pred.shape))
 
         if method == "nsme":
-            nominator = np.mean(np.linalg.norm(X_pred - X, axis=0)**2.)
-            denominator = np.mean(np.linalg.norm(X - np.mean(X, axis=1), axis=0)**2.)
-            return nominator/denominator
+            nominator = np.mean(np.linalg.norm(X_pred - X, axis=1)**2.)
+            denominator = np.mean(np.linalg.norm(X - np.mean(X, axis=0), axis=1)**2.)
+            return 1. - nominator/denominator
         else:
             raise Exception("Scoring method not known!")

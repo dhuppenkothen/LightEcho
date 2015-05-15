@@ -59,10 +59,11 @@ def test_input_weights():
     x = np.arange(10)
 
     ## single data stream
-    y = np.atleast_2d(np.ones_like(x))
+    y = np.atleast_2d(np.ones_like(x)).T
+
     print(y.shape)
     ## double data stream
-    yd = np.ones((2, len(x)))
+    yd = np.ones((len(x),2))
     print(yd.shape)
 
     ## choose value for r
@@ -77,12 +78,12 @@ def test_input_weights():
 
     ## single data stream
     esn = EchoStateNetwork(N=N,a=a,r=r,topology="scr")
-    vv = esn._initialize_input_weights(y.shape[0],esn.a)
+    vv = esn._initialize_input_weights(y.shape[1],esn.a)
     print("Input weights for single data stream: \n " + str(vv))
 
     ## double data stream
     esn = EchoStateNetwork(N=N,a=a,r=r,topology="scr")
-    vv = esn._initialize_input_weights(yd.shape[0],esn.a)
+    vv = esn._initialize_input_weights(yd.shape[1],esn.a)
     print("Input weights for single data stream (should be randomly -0.75 and 0.75: \n " + str(vv))
     print("shape of data points: " + str(yd.shape))
     print("shape of input weights (should be the same as shape of data): " + str(vv.shape))
@@ -138,7 +139,7 @@ def test_damping():
     ## dummy data
 
     ## single data stream
-    y = np.ones((1,10000))
+    y = np.ones((10000))
 
 
     ## choose value for r
@@ -175,7 +176,7 @@ def test_damping():
 
 def test_code():
 
-    data = np.atleast_2d(np.loadtxt("varsine.dat"))
+    data = np.loadtxt("varsine.dat")
 
     esn = EchoStateNetwork(N=100, a=1.0, r=0.5, n_washout=50)
 
@@ -188,7 +189,7 @@ def test_code():
 
 def test_with_noise():
 
-    data = np.atleast_2d(np.loadtxt("varsine.dat"))
+    data = np.loadtxt("varsine.dat")
 
     yy = np.random.normal(data, 0.1)
     print(yy.shape)
@@ -200,6 +201,42 @@ def test_with_noise():
 
     return esn, esn.ww, yy_test
 
+def test_score():
+
+    data = np.loadtxt("varsine.dat")
+
+    yy = np.random.normal(data, 0.1)
+    #print(yy.shape)
+
+    esn = EchoStateNetwork(N=100, a=1.0, r=0.5)
+    esn.fit(data)
+
+    score_full = esn.score(data)
+    print("Score on full dataset without noise is: %.3f"%score_full)
+
+    score_noise = esn.score(yy)
+    print("Score on full data set: train without noise, score with noise: %.3f"%score_noise)
+
+    ### Split into training and test set, see what happens
+    ndata = data.shape[0]
+
+    ## fraction of data to use for training
+    training_fraction = 0.6
+
+    training_length = int(0.6*ndata)
+
+    yy_train = yy[:training_length]
+    yy_test = yy[training_length:]
+
+    esn.fit(yy_train)
+
+    score_train= esn.score(yy_test)
+    print("Score on test dataset with noise is: %.3f"%score_train)
+
+    return
+
+
+
 
 
 ### run all tests
@@ -208,4 +245,5 @@ def test_with_noise():
 #est_cost_function()
 #acts = test_damping()
 #esn, ww, yy_test = test_code()
-esn, ww, yy_test = test_with_noise()
+#esn, ww, yy_test = test_with_noise()
+test_score()
