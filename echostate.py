@@ -70,12 +70,13 @@ class EchoStateNetwork(object):
         self.uu = self._initialize_hidden_weights(self.r,self.b,self.topology)
 
 
-    def _initialize_input_weights(self, a, seed=20150513):
+    def _initialize_input_weights(self, D, a, seed=20150513):
         """
         Initialize input weights.
         Input layer fully connected to reservoir, weights have same absolute value a,
         but signs randomly flipped for each weight.
 
+        :param D: dimensionality of input data
         :param a: weight value
         :return: vv = input layer weights
         """
@@ -87,7 +88,7 @@ class EchoStateNetwork(object):
         np.random.seed(seed=seed)
 
         ## initialize weight matrix with Bernoulli distribution
-        vv = scipy.stats.bernoulli.rvs(pr, size=(self.N, self.D)).astype(np.float64)
+        vv = scipy.stats.bernoulli.rvs(pr, size=(self.N, D)).astype(np.float64)
 
         ## populate with actual weights
         vv[vv == 0.] = -a
@@ -141,7 +142,7 @@ class EchoStateNetwork(object):
         """
         Fit method for the Echo State Network.
 
-        :param X: data (K by D, where K is the number of data points, D the dimensionality)
+        :param X: data (D by K, where K is the number of data points, D the dimensionality)
 
         :return:
         """
@@ -150,15 +151,15 @@ class EchoStateNetwork(object):
 
         ## data
         self.X = np.atleast_2d(X)
-        print("shape of data stream: " + str(self.y.shape))
+        print("shape of data stream: " + str(self.X.shape))
 
         ## number of data points
-        self.K = int(self.y.shape[1])
+        self.K = int(self.X.shape[1])
         print("Number of data points: %i"%self.K)
 
         ## number of dimensions
-        if len(self.y.shape) > 1:
-            self.D = int(self.y.shape[0])
+        if len(self.X.shape) > 1:
+            self.D = int(self.X.shape[0])
         else:
             self.D = 1
 
@@ -166,7 +167,7 @@ class EchoStateNetwork(object):
 
 
         ## initialize input weights
-        self.vv = self._initialize_input_weights(self.a)
+        self.vv = self._initialize_input_weights(self.D,self.a)
 
 
         ## initialize hidden units
@@ -220,12 +221,12 @@ class EchoStateNetwork(object):
         """run the esn, see what happens"""
 
 
-        H = np.zeros((len(X), self.N))
+        H = np.zeros((X.shape[1], self.N))
         H[0,:] = self.H[-1,:]
 
         X_pred = []
 
-        for i in range(len(X)-1):
+        for i in range(X.shape[1]-1):
 
             X_pred.append(np.dot(H[i,:], self.ww.T))
 

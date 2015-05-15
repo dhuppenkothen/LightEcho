@@ -30,18 +30,18 @@ def test_hidden_weights():
     #### go through the topologies
 
     ## SCR first
-    esn = EchoStateNetwork(x,y,N,a,r, b,topology="scr")
+    esn = EchoStateNetwork(N=N,a=a,r=r,topology="scr")
     print("SCR topology: \n "
           "Elements should be on lower sub-diagonal only (U_(i+1,i)), plus one"
           "element on position in upper right corner: (0,N) \n" + str(esn.uu) + "\n")
 
     ## DLR second
-    esn = EchoStateNetwork(x,y,N,a,r,b,topology="dlr")
+    esn = EchoStateNetwork(N=N,a=a,r=r,topology="dlr")
     print("DLR topology: \n "
           "Elements should be on lower sub-diagonal only (U_(i+1,i)) \n" + str(esn.uu) + "\n")
 
     ## DLRB third
-    esn = EchoStateNetwork(x,y,N,a,r,b,topology="dlrb")
+    esn = EchoStateNetwork(N=N,a=a,r=r,b=b,topology="dlrb")
     print("DLRB topology: \n "
           "Elements should be on lower sub-diagonal (U_(i+1,i)), "
           "on upper subdiagonal (U_(i,i+1)) \n" + str(esn.uu) + "\n")
@@ -59,10 +59,10 @@ def test_input_weights():
     x = np.arange(10)
 
     ## single data stream
-    y = np.ones_like(x)
-
+    y = np.atleast_2d(np.ones_like(x))
+    print(y.shape)
     ## double data stream
-    yd = np.ones((len(x), 2))
+    yd = np.ones((2, len(x)))
     print(yd.shape)
 
     ## choose value for r
@@ -76,14 +76,16 @@ def test_input_weights():
 
 
     ## single data stream
-    esn = EchoStateNetwork(x,y,N,a,r,topology="scr")
-    print("Input weights for single data stream: \n " + str(esn.vv))
+    esn = EchoStateNetwork(N=N,a=a,r=r,topology="scr")
+    vv = esn._initialize_input_weights(y.shape[0],esn.a)
+    print("Input weights for single data stream: \n " + str(vv))
 
     ## double data stream
-    esn = EchoStateNetwork(x,yd,N,a,r,topology="scr")
-    print("Input weights for single data stream (should be randomly -0.75 and 0.75: \n " + str(esn.vv))
-    print("shape of data points: " + str(esn.y.shape))
-    print("shape of input weights (should be the same as shape of data): " + str(esn.vv.shape))
+    esn = EchoStateNetwork(N=N,a=a,r=r,topology="scr")
+    vv = esn._initialize_input_weights(yd.shape[0],esn.a)
+    print("Input weights for single data stream (should be randomly -0.75 and 0.75: \n " + str(vv))
+    print("shape of data points: " + str(yd.shape))
+    print("shape of input weights (should be the same as shape of data): " + str(vv.shape))
 
     return
 
@@ -95,7 +97,7 @@ def test_cost_function():
     x = np.arange(10000)
 
     ## single data stream
-    y = np.ones_like(x)
+    y = np.atleast_2d(np.ones_like(x))
 
 
     ## choose value for r
@@ -110,9 +112,9 @@ def test_cost_function():
     ## set regularisation term
     lamb = 1.0
 
-    esn = EchoStateNetwork(x,y,N,a,r,topology="scr")
+    esn = EchoStateNetwork(N=N,a=a,r=r,topology="scr")
 
-    weights = np.random.uniform(size=(esn.N, esn.D))
+    weights = np.random.uniform(size=(esn.N, y.shape[0]))
 
     ## not sure this is right?
     X = np.ones((esn.K, esn.N))
@@ -134,10 +136,9 @@ def test_cost_function():
 def test_damping():
 
     ## dummy data
-    x = np.arange(10000)
 
     ## single data stream
-    y = np.ones_like(x)
+    y = np.ones((1,10000))
 
 
     ## choose value for r
@@ -155,7 +156,7 @@ def test_damping():
     ## scaling for the memory
     scaling = 1.0
 
-    esn = EchoStateNetwork(x,y,N,a,r,topology="scr")
+    esn = EchoStateNetwork(N=N,a=a,r=r,scaling=1.0,topology="scr")
 
     """Checking if the network stabilises"""
     """This is (modified) code from https://github.com/squeakus/echostatenetwork"""
@@ -174,31 +175,30 @@ def test_damping():
 
 def test_code():
 
-    data = np.loadtxt("varsine.dat")
-    x = np.arange(len(data))
+    data = np.atleast_2d(np.loadtxt("varsine.dat"))
 
-    esn = EchoStateNetwork(x, data, 100, 1.0, 0.5)
+    esn = EchoStateNetwork(N=100, a=1.0, r=0.5, n_washout=50)
 
-    ww, yy_out = esn.train(n_washout=50, scaling=1.0)
+    esn.fit(data)
 
-    yy_test = esn.test(data, scaling=1.0)
+    yy_test = esn.predict(data)
 
-    return ww, yy_out, yy_test
+    return esn, esn.ww, yy_test
 
 
 def test_with_noise():
 
-    data = np.loadtxt("varsine.dat")
-    x = np.arange(len(data))
+    data = np.atleast_2d(np.loadtxt("varsine.dat"))
+
     yy = np.random.normal(data, 0.1)
+    print(yy.shape)
 
-    esn = EchoStateNetwork(x, yy, 100, 1.0, 0.5)
+    esn = EchoStateNetwork(N=100, a=1.0, r=0.5)
+    esn.fit(yy)
 
-    ww, yy_out = esn.train(n_washout=50, scaling=1.0)
+    yy_test = esn.predict(yy)
 
-    yy_test = esn.test(data, scaling=1.0)
-
-    return esn, ww, yy_out, yy_test
+    return esn, esn.ww, yy_test
 
 
 
@@ -207,5 +207,5 @@ def test_with_noise():
 #test_input_weights()
 #est_cost_function()
 #acts = test_damping()
-#ww, yy_out, yy_test = test_code()
-#esn, ww, yy_out, yy_test = test_with_noise()
+#esn, ww, yy_test = test_code()
+esn, ww, yy_test = test_with_noise()
