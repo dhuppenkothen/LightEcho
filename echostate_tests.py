@@ -11,9 +11,6 @@ def test_hidden_weights():
     Test the initialization for the hidden units
     :return:
     """
-    ## dummy data
-    x = np.arange(10)
-    y = np.ones_like(x)
 
     ## choose value for r
     r = 0.1
@@ -90,57 +87,7 @@ def test_input_weights():
 
     return
 
-
-def test_cost_function():
-
-
-    ## dummy data
-    x = np.arange(10000)
-
-    ## single data stream
-    y = np.atleast_2d(np.ones_like(x))
-
-
-    ## choose value for r
-    r = 0.1
-
-    ## pick a weight for the input weights
-    a = 0.75
-
-    ## pick 10 hidden units
-    N = 15
-
-    ## set regularisation term
-    lamb = 1.0
-
-    esn = EchoStateNetwork(N=N,a=a,r=r,topology="scr")
-
-    weights = np.random.uniform(size=(esn.N, y.shape[0]))
-
-    ## not sure this is right?
-    X = np.ones((esn.K, esn.N))
-
-    for i in xrange(esn.K-1):
-        first_part = np.dot(esn.uu, X[i])
-        #print("first part: " + str(first_part.shape))
-        second_part = np.dot(esn.vv,esn.y.T)
-        #print("second part: " + str(second_part.shape))
-        X[i+1,:] = np.tanh(first_part, second_part.T)
-        #X[i+1] = np.tanh(np.dot(esn.uu, X[i]) + np.dot(esn.vv,esn.y))
-
-
-    cf = esn._cost_function(y, X, weights, lamb)
-    print("The cost function is: " + str(cf))
-
-    return
-
 def test_damping():
-
-    ## dummy data
-
-    ## single data stream
-    y = np.ones((10000))
-
 
     ## choose value for r
     r = 0.1
@@ -192,7 +139,6 @@ def test_with_noise():
     data = np.loadtxt("varsine.dat")
 
     yy = np.random.normal(data, 0.1)
-    print(yy.shape)
 
     esn = EchoStateNetwork(N=100, a=1.0, r=0.5)
     esn.fit(yy)
@@ -224,8 +170,7 @@ def test_score():
 
     ## fraction of data to use for training
     training_fraction = 0.6
-
-    training_length = int(0.6*ndata)
+    training_length = int(training_fraction*ndata)
 
     yy_train = yy[:training_length]
     yy_test = yy[training_length:]
@@ -242,10 +187,9 @@ def test_score():
 
 
 ### run all tests
-#test_hidden_weights()
-#test_input_weights()
-#est_cost_function()
-#acts = test_damping()
-#esn, ww, yy_test = test_code()
-#esn, ww, yy_test = test_with_noise()
+test_hidden_weights()
+test_input_weights()
+acts = test_damping()
+esn, ww, yy_test = test_code()
+esn_noise, ww_noise, yy_test_noise = test_with_noise()
 test_score()

@@ -227,23 +227,6 @@ class EchoStateNetwork(object):
 
         return np.array(X_pred)
 
-    def _cost_function(self, X, H, ww, lamb):
-        """
-        This is the cost function for Ridge Regression. I can just use the
-        scikit-learn implementation of Ridge Regression, but with sqrt(lamb)
-        as a regularization parameter.
-
-
-        :param yy:
-        :param X:
-        :param ww:
-        :param lamb:
-        :return:
-        """
-        inner_part =  np.dot(H,ww) - X
-        second_term = 0.5*lamb*np.linalg.norm(ww)**2.
-        return 0.5*np.linalg.norm(inner_part)**2. + second_term
-
 
     def score(self, X, method="nsme"):
         """
