@@ -40,11 +40,8 @@ class EchoStateNetwork(object):
         :return:
         """
 
-
-
         ## number of hidden units
         self.N = int(N)
-        #print("Number of hidden units: %i"%self.N)
 
         ## reservoir topology and associated parameters
         self.topology = topology
@@ -53,7 +50,6 @@ class EchoStateNetwork(object):
 
         ## input unit weights
         self.a = a
-
 
         ## number of "washout" samples
         self.n_washout = n_washout
@@ -148,27 +144,21 @@ class EchoStateNetwork(object):
         :return:
         """
 
-
-
-        ## data
+        ## make sure data is in correct form (N_samples, N_dimensions)
         if len(X.shape) == 1:
             X = np.atleast_2d(X).T
 
+        ## store data in attribute
         self.X = X
-        #print("shape of data stream: " + str(self.X.shape))
 
         ## number of data points
         self.K = int(self.X.shape[0])
-        #print("Number of data points: %i"%self.K)
 
         ## number of dimensions
         self.D = int(self.X.shape[1])
-        #print("Dimensionality of the data: %i"%self.D)
-
 
         ## initialize input weights
         self.vv = self._initialize_input_weights(self.D,self.a)
-
 
         ## initialize hidden units
         H = np.zeros((self.K, self.N))
@@ -185,15 +175,9 @@ class EchoStateNetwork(object):
             act = np.tanh(first_part + second_part)
             H[i+1,:] = (1.0-self.scaling)*H[i,:] + self.scaling*act
 
-        #print("H.shape: " + str(H.shape))
-
         ## discard washout period
         H = H[self.n_washout:,:]
-        #print("H.shape: " + str(H.shape))
-
         yy = self.X[self.n_washout:,:]
-        #print("yy.shape: " + str(yy.shape))
-
 
         ## if regularization parameter is None, then determine by cross validation
         if self.lamb is None:
@@ -235,9 +219,7 @@ class EchoStateNetwork(object):
             X_pred.append(np.dot(H[i-1,:], self.ww.T))
 
             first_part = np.dot(H[i-1,:],self.uu)
-            #print("first part: " + str(first_part.shape))
             second_part = np.dot(self.vv, X[i-1,0]).T
-            #print("second part: " + str(second_part.shape))
             act = np.tanh(first_part + second_part)
             H[i,:] = (1.0-self.scaling)*H[i-1,:] + self.scaling*act
 
