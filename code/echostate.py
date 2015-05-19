@@ -185,6 +185,7 @@ class EchoStateNetwork(BaseEstimator):
         H = H[self.n_washout:,:]
         yy = self.X[self.n_washout:,:]
 
+        yy_inv = np.arctanh(yy)
         ## if regularization parameter is None, then determine by cross validation
         if self.lamb is None:
             ## proposals for regularization parameters
@@ -192,13 +193,13 @@ class EchoStateNetwork(BaseEstimator):
             ## initialize Ridge Regression classifier
             rr_clf = RidgeCV(alphas=lamb_all)
             ## fit the data with the linear model
-            rr_clf.fit(H, yy)
+            rr_clf.fit(H, yy_inv)
             ## regularization parameter determined by cross validation
             self.lamb = rr_clf.alpha_
 
         else:
             rr_clf = Ridge(alpha=self.lamb)
-            rr_clf.fit(H,yy)
+            rr_clf.fit(H,yy_inv)
 
         ## best-fit output weights
         self.ww = rr_clf.coef_
@@ -234,7 +235,7 @@ class EchoStateNetwork(BaseEstimator):
         return np.array(X_pred)
 
 
-    def score(self, X, method="nsme"):
+    def score(self, X, method="r2"):
         """
         Score performance of the algorithm.
 

@@ -3,6 +3,8 @@
 
 import numpy as np
 
+import sys
+sys.path.append("../code/")
 from echostate import EchoStateNetwork
 
 
@@ -28,20 +30,25 @@ def test_hidden_weights():
 
     ## SCR first
     esn = EchoStateNetwork(N=N,a=a,r=r,topology="scr")
+    uu = esn._initialize_hidden_weights(esn.r,esn.b,esn.topology)
+
     print("SCR topology: \n "
           "Elements should be on lower sub-diagonal only (U_(i+1,i)), plus one"
-          "element on position in upper right corner: (0,N) \n" + str(esn.uu) + "\n")
+          "element on position in upper right corner: (0,N) \n" + str(uu) + "\n")
 
     ## DLR second
     esn = EchoStateNetwork(N=N,a=a,r=r,topology="dlr")
+    uu = esn._initialize_hidden_weights(esn.r,esn.b,esn.topology)
     print("DLR topology: \n "
-          "Elements should be on lower sub-diagonal only (U_(i+1,i)) \n" + str(esn.uu) + "\n")
+          "Elements should be on lower sub-diagonal only (U_(i+1,i)) \n" + str(uu) + "\n")
 
     ## DLRB third
     esn = EchoStateNetwork(N=N,a=a,r=r,b=b,topology="dlrb")
+    uu = esn._initialize_hidden_weights(esn.r,esn.b,esn.topology)
+
     print("DLRB topology: \n "
           "Elements should be on lower sub-diagonal (U_(i+1,i)), "
-          "on upper subdiagonal (U_(i,i+1)) \n" + str(esn.uu) + "\n")
+          "on upper subdiagonal (U_(i,i+1)) \n" + str(uu) + "\n")
 
     return
 
@@ -105,6 +112,8 @@ def test_damping():
     scaling = 1.0
 
     esn = EchoStateNetwork(N=N,a=a,r=r,scaling=1.0,topology="scr")
+    esn.uu = esn._initialize_hidden_weights(esn.r,type=esn.topology)
+
 
     """Checking if the network stabilises"""
     """This is (modified) code from https://github.com/squeakus/echostatenetwork"""
@@ -123,7 +132,7 @@ def test_damping():
 
 def test_code():
 
-    data = np.loadtxt("varsine.dat")
+    data = np.loadtxt("../data/varsine.dat")
 
     esn = EchoStateNetwork(N=100, a=1.0, r=0.5, n_washout=50)
 
@@ -136,7 +145,7 @@ def test_code():
 
 def test_with_noise():
 
-    data = np.loadtxt("varsine.dat")
+    data = np.loadtxt("../data/varsine.dat")
 
     yy = np.random.normal(data, 0.1)
 
@@ -149,7 +158,7 @@ def test_with_noise():
 
 def test_score():
 
-    data = np.loadtxt("varsine.dat")
+    data = np.loadtxt("../data/varsine.dat")
 
     yy = np.random.normal(data, 0.1)
     #print(yy.shape)
