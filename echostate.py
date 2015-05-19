@@ -11,16 +11,18 @@
 
 import numpy as np
 import scipy.stats
+from sklearn.base import BaseEstimator
 from sklearn.linear_model import RidgeCV, Ridge
 from sklearn.metrics import r2_score
 
-def sigmoid(x):
-    return 1./(1.+np.exp(-x))
 
+class EchoStateNetwork(BaseEstimator):
 
+    """
+    The Echo State Network class. Inherits from sklearn.base.BaseEstimator
+    in order to use things like GridSearchCV.
 
-class EchoStateNetwork(object):
-
+    """
 
     def __init__(self, N = 100, a = 0.75, r = 0.1, n_washout=100,
                  scaling=1.0, lamb=None, seed=20150513, b=None,topology="scr"):
@@ -42,6 +44,7 @@ class EchoStateNetwork(object):
 
         ## number of hidden units
         self.N = int(N)
+        #print("self.N: " + str(self.N))
 
         ## reservoir topology and associated parameters
         self.topology = topology
@@ -62,9 +65,6 @@ class EchoStateNetwork(object):
 
         ## seed for the random number generator
         self.seed = seed
-
-        ## initialize hidden weights
-        self.uu = self._initialize_hidden_weights(self.r,self.b,self.topology)
 
 
     def _initialize_input_weights(self, D, a, seed=20150513):
@@ -157,6 +157,10 @@ class EchoStateNetwork(object):
         ## number of dimensions
         self.D = int(self.X.shape[1])
 
+        ## initialize hidden weights
+        self.uu = self._initialize_hidden_weights(self.r,self.b,self.topology)
+        #print("UU shape: " + str(self.uu.shape))
+
         ## initialize input weights
         self.vv = self._initialize_input_weights(self.D,self.a)
 
@@ -170,6 +174,8 @@ class EchoStateNetwork(object):
         ## include a scaling for memory from previous time step
         for i in xrange(self.K-1):
             ## split equation into two parts to avoid stupid mistakes
+            #print(H.shape)
+            #print(self.uu.shape)
             first_part = np.dot(H[i,:],self.uu)
             second_part = np.dot(self.vv,self.X[i,0]).T
             act = np.tanh(first_part + second_part)

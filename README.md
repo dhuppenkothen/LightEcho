@@ -10,4 +10,4 @@ Dependencies:
 - scikit-learn
 - matplotlib (only to run demo noteobok)
 - ipython notebook (only to run demo notebook)
-
+- seaborn (only to run demo notebook and make plots prettier)
