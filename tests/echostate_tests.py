@@ -137,6 +137,7 @@ def test_code():
     esn = EchoStateNetwork(N=100, a=1.0, r=0.5, n_washout=50)
 
     esn.fit(data)
+    esn.transform(data)
 
     yy_test = esn.predict(data)
 
@@ -150,7 +151,8 @@ def test_with_noise():
     yy = np.random.normal(data, 0.1)
 
     esn = EchoStateNetwork(N=100, a=1.0, r=0.5)
-    esn.fit(yy)
+    ww = esn.fit_transform(yy)
+
 
     yy_test = esn.predict(yy)
 
@@ -164,7 +166,7 @@ def test_score():
     #print(yy.shape)
 
     esn = EchoStateNetwork(N=100, a=1.0, r=0.5)
-    esn.fit(data)
+    ww = esn.fit_transform(data)
 
     print("NSME should match sklearn.metrics.r2_score! \n")
 
@@ -178,7 +180,7 @@ def test_score():
     ndata = data.shape[0]
 
     ## fraction of data to use for training
-    training_fraction = 0.6
+    training_fraction = 0.5
     training_length = int(training_fraction*ndata)
 
     yy_train = yy[:training_length]

@@ -11,12 +11,12 @@
 
 import numpy as np
 import scipy.stats
-from sklearn.base import BaseEstimator
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.linear_model import RidgeCV, Ridge
 from sklearn.metrics import r2_score
 
 
-class EchoStateNetwork(BaseEstimator):
+class EchoStateNetwork(BaseEstimator, TransformerMixin):
 
     """
     The Echo State Network class. Inherits from sklearn.base.BaseEstimator
@@ -144,6 +144,7 @@ class EchoStateNetwork(BaseEstimator):
         :return:
         """
 
+
         ## make sure data is in correct form (N_samples, N_dimensions)
         if len(X.shape) == 1:
             X = np.atleast_2d(X).T
@@ -182,10 +183,18 @@ class EchoStateNetwork(BaseEstimator):
             H[i+1,:] = (1.0-self.scaling)*H[i,:] + self.scaling*act
 
         ## discard washout period
-        H = H[self.n_washout:,:]
+        self.H = H
+
+        #return
+
+    def transform(self, X):
+
+        if len(X.shape) == 1:
+            X = np.atleast_2d(X).T
+
+        H = self.H[self.n_washout:,:]
         yy = self.X[self.n_washout:,:]
 
-        yy_inv = np.arctanh(yy)
         ## if regularization parameter is None, then determine by cross validation
         if self.lamb is None:
             ## proposals for regularization parameters
@@ -193,21 +202,26 @@ class EchoStateNetwork(BaseEstimator):
             ## initialize Ridge Regression classifier
             rr_clf = RidgeCV(alphas=lamb_all)
             ## fit the data with the linear model
-            rr_clf.fit(H, yy_inv)
+            rr_clf.fit(H, yy)
             ## regularization parameter determined by cross validation
             self.lamb = rr_clf.alpha_
 
         else:
             rr_clf = Ridge(alpha=self.lamb)
-            rr_clf.fit(H,yy_inv)
+            rr_clf.fit(H,yy)
 
         ## best-fit output weights
         self.ww = rr_clf.coef_
 
         ## store activations for future use
-        self.H = H
 
-        return
+        return self.ww
+
+    def fit_transform(self, X):
+        self.fit(X)
+        ww = self.transform(X)
+
+        return ww
 
     def predict(self, X):
         """run the esn, see what happens"""
@@ -245,10 +259,14 @@ class EchoStateNetwork(BaseEstimator):
                         r2 = R^2 score
         :return:
         """
+        assert X.shape[0] == self.X.shape[0], "Data (%i samples) to score must have same dimensions " \
+                                        "as training data (%i samples)!"%(X.shape[0], self.X.shape[0])
 
+        #print("X in score: " + str(X.shape))
         if len(X.shape) == 1:
             X = np.atleast_2d(X).T
 
+        ww = self.transform(X)
         X_pred = self.predict(X)
 
         if method == "nsme":
@@ -260,3 +278,83 @@ class EchoStateNetwork(BaseEstimator):
             return r2_score(X, X_pred)
         else:
             raise Exception("Scoring method not known!")
+
+
+class EchoStateEnsemble(BaseEstimator,TransformerMixin):
+    """
+    Transform a set of light curves simultaneously. This works for ONE-DIMENSIONAL DATA ONLY!
+    """
+    def __init__(self, N = 100, a = 0.75, r = 0.1, n_washout=100,
+                 scaling=1.0, lamb=None, seed=20150513, b=None,topology="scr"):
+        """
+        Initialization for the echo state network for time series.
+        :param N: number of hidden units.
+        :param lamb: regularization term
+        :param a: absolute value of input weights
+        :param r: weights for forward connections between hidden weights
+        :param n_washout: number of samples in the time series to wash out
+        :param scaling: scaling between current and previous time step
+        :param lamb: regularization parameter for ridge regression
+        :param seed: seed for the random number generator
+        :param b: weights for backward connections between hidden weights (for topology="dlrb" only)
+        :param topology: reservoir topology (one of "SCR", "DLR", "DLRB",
+                see Rodan+Tino, "Minimum Complexity Echo State Network" for details
+        :return:
+        """
+
+        ## number of hidden units
+        self.N = int(N)
+        #print("self.N: " + str(self.N))
+
+        ## reservoir topology and associated parameters
+        self.topology = topology
+        self.r = r
+        self.b = b
+
+        ## input unit weights
+        self.a = a
+
+        ## number of "washout" samples
+        self.n_washout = n_washout
+
+        ## Scaling between current and pervious time step
+        self.scaling = scaling
+
+        ## Regularization parameter
+        self.lamb = lamb
+
+        ## seed for the random number generator
+        self.seed = seed
+
+    def fit(self, X):
+        """
+        Fit method for Echo State Network on the ensemble.
+        Initializes EchoStateNetwork objects for each light curve and
+        saves them in a list.
+
+        :param X: numpy.ndarray (N_lightcurves, N_datapoints)
+        :return:
+        """
+        ensemble = []
+        for l in xrange(self.L):
+            esn = EchoStateNetwork(N=self.N, a=self.a, r=self.r, n_washout=self.n_washout,
+                                   scaling=self.scaling, lamb=self.lamb, seed=self.seed, b=self.b,
+                                   topology=self.topology)
+            esn.fit(X[l,:])
+            ensemble.append(esn)
+
+        self.ensemble = ensemble
+
+        return
+
+    def transform(self, X):
+
+        ww = np.zeros((self.L, self.N))
+        for l,e in zip(xrange(self.L), self.ensemble):
+            ww[l,:] = e.transform(X[l,:])
+
+        self.ww = ww
+        return ww
+
+
+
